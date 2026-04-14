@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>USAA Admission Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --navy:#0a1f5c;--blue:#1a3fa0;--blue-mid:#2355c5;--blue-light:#3b6ef0;
+  --gold:#f5c400;--gold-light:#ffd93d;--gold-dark:#c89f00;
+  --white:#ffffff;--gray-50:#f8f9fc;--gray-100:#eef0f6;--gray-200:#d8dce8;
+  --gray-400:#8891b0;--gray-600:#4a5270;--gray-800:#1e2440;
+  --error:#e53e3e;--success:#2f855a;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--navy);min-height:100vh;overflow-x:hidden;color:var(--gray-800);}
+
+.bg-canvas{position:fixed;inset:0;z-index:0;background:linear-gradient(135deg,#040d2e 0%,#0a1f5c 40%,#0d2878 70%,#091847 100%);overflow:hidden;}
+.bg-canvas::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 20% 50%,rgba(245,196,0,0.07) 0%,transparent 60%),radial-gradient(ellipse 60% 80% at 80% 20%,rgba(59,110,240,0.15) 0%,transparent 50%);}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);background-size:60px 60px;}
+.bg-orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;}
+.orb-1{width:500px;height:500px;background:rgba(245,196,0,0.08);top:-100px;right:-100px;}
+.orb-2{width:400px;height:400px;background:rgba(35,85,197,0.15);bottom:-80px;left:-80px;}
+
+.portal-wrap{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;}
+
+.card{background:rgba(255,255,255,0.97);border-radius:24px;width:100%;max-width:480px;box-shadow:0 32px 80px rgba(4,13,46,0.5),0 0 0 1px rgba(255,255,255,0.1);overflow:hidden;animation:cardIn 0.6s cubic-bezier(0.22,1,0.36,1) both;}
+@keyframes cardIn{from{opacity:0;transform:translateY(32px) scale(0.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+
+.card-header{background:linear-gradient(135deg,var(--navy) 0%,var(--blue) 60%,var(--blue-mid) 100%);padding:36px 40px 32px;position:relative;overflow:hidden;text-align:center;}
+.card-header::before{content:'';position:absolute;right:-40px;top:-40px;width:200px;height:200px;border-radius:50%;background:rgba(245,196,0,0.08);}
+.card-header::after{content:'';position:absolute;left:-20px;bottom:-40px;width:140px;height:140px;border-radius:50%;background:rgba(59,110,240,0.15);}
+.seal{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-light));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 0 0 4px rgba(245,196,0,0.2),0 8px 24px rgba(245,196,0,0.3);position:relative;z-index:1;font-size:30px;animation:sealPulse 3s ease-in-out infinite;}
+@keyframes sealPulse{0%,100%{box-shadow:0 0 0 4px rgba(245,196,0,0.2),0 8px 24px rgba(245,196,0,0.3);}50%{box-shadow:0 0 0 8px rgba(245,196,0,0.1),0 8px 32px rgba(245,196,0,0.4);}}
+.uni-name{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--gold);letter-spacing:0.04em;line-height:1.3;position:relative;z-index:1;margin-bottom:4px;}
+.portal-label{font-size:11px;font-weight:500;color:rgba(255,255,255,0.5);letter-spacing:0.12em;text-transform:uppercase;position:relative;z-index:1;}
+
+.card-body{padding:36px 40px 40px;}
+.screen{display:none;}
+.screen.active{display:block;animation:fadeIn 0.3s ease both;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.screen-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:800;color:var(--navy);margin-bottom:4px;}
+.screen-sub{font-size:13px;color:var(--gray-400);margin-bottom:28px;line-height:1.5;}
+
+.form-group{margin-bottom:16px;position:relative;}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);letter-spacing:0.04em;margin-bottom:6px;}
+.form-input{width:100%;font-size:14px;font-family:'DM Sans',sans-serif;border:1.5px solid var(--gray-200);border-radius:10px;padding:11px 14px;color:var(--gray-800);background:#fff;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+.form-input:focus{border-color:var(--blue-light);box-shadow:0 0 0 3px rgba(59,110,240,0.1);}
+.input-icon{position:relative;}
+.input-icon .form-input{padding-left:40px;}
+.input-icon .icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;color:var(--gray-400);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--blue),var(--blue-mid));color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;letter-spacing:0.02em;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(26,63,160,0.35);}
+.btn-primary:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+.btn-gold{width:100%;background:linear-gradient(135deg,var(--gold-dark),var(--gold));color:var(--navy);border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(245,196,0,0.3);}
+.btn-link{background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--blue-light);font-weight:600;padding:0;transition:color 0.2s;}
+.btn-link:hover{color:var(--navy);}
+
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--gray-400);font-size:12px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--gray-200);}
+
+.alert{border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;animation:fadeIn 0.3s ease;line-height:1.5;}
+.alert-error{background:#fff5f5;border:1px solid #fed7d7;color:#c53030;}
+.alert-success{background:#f0fff4;border:1px solid #c6f6d5;color:#276749;}
+.alert-info{background:#ebf4ff;border:1px solid #bee3f8;color:#2b6cb0;}
+
+.otp-wrap{display:flex;gap:8px;justify-content:center;margin:20px 0;}
+.otp-input{width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:'DM Sans',sans-serif;border:2px solid var(--gray-200);border-radius:10px;color:var(--navy);outline:none;background:#fff;transition:all 0.2s;}
+.otp-input:focus{border-color:var(--blue-light);box-shadow:0 0 0 3px rgba(59,110,240,0.1);}
+.otp-input.filled{border-color:var(--blue);background:#f0f4ff;}
+
+.card-footer-nav{text-align:center;margin-top:20px;font-size:13px;color:var(--gray-400);}
+
+.pw-strength{margin-top:6px;display:flex;gap:4px;}
+.pw-bar{flex:1;height:3px;border-radius:2px;background:var(--gray-200);transition:background 0.3s;}
+.pw-bar.weak{background:#e53e3e;}.pw-bar.fair{background:#dd6b20;}.pw-bar.good{background:#d69e2e;}.pw-bar.strong{background:#38a169;}
+.pw-label{font-size:11px;color:var(--gray-400);margin-top:4px;}
+
+.steps{display:flex;align-items:center;gap:0;margin-bottom:28px;}
+.step{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;}
+.step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--gray-200);color:var(--gray-400);flex-shrink:0;transition:all 0.3s;}
+.step.done .step-num{background:var(--success);color:#fff;}
+.step.active .step-num{background:var(--blue);color:#fff;}
+.step-label{color:var(--gray-400);}
+.step.active .step-label{color:var(--navy);font-weight:700;}
+.step.done .step-label{color:var(--success);}
+.step-line{flex:1;height:1px;background:var(--gray-200);margin:0 8px;}
+
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Dashboard */
+.dash-wrap{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:rgba(10,31,92,0.97);backdrop-filter:blur(12px);border-bottom:1px solid rgba(245,196,0,0.2);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.topbar-brand{display:flex;align-items:center;gap:12px;}
+.topbar-seal{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--gold-light));display:flex;align-items:center;justify-content:center;font-size:16px;}
+.topbar-name{font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:var(--gold);line-height:1.2;}
+.topbar-sub{font-size:10px;color:rgba(255,255,255,0.45);letter-spacing:0.06em;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.user-chip{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:6px 14px;}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--gold));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--navy);}
+.user-name{font-size:13px;color:#fff;font-weight:500;}
+.btn-signout{background:rgba(229,62,62,0.15);color:#fc8181;border:1px solid rgba(229,62,62,0.3);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
+.btn-signout:hover{background:rgba(229,62,62,0.25);}
+
+.dash-body{display:flex;flex:1;}
+.sidebar{width:220px;background:rgba(8,24,72,0.9);border-right:1px solid rgba(245,196,0,0.1);padding:24px 0;flex-shrink:0;}
+.sidebar-section{padding:0 16px 8px;font-size:10px;font-weight:700;color:rgba(245,196,0,0.5);text-transform:uppercase;letter-spacing:0.12em;}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;font-size:13px;font-weight:400;color:rgba(255,255,255,0.55);background:transparent;border:none;border-left:3px solid transparent;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.nav-item:hover{color:rgba(255,255,255,0.85);}
+.nav-item.active{color:#fff;font-weight:600;background:rgba(245,196,0,0.08);border-left-color:var(--gold);}
+
+.main-content{flex:1;padding:32px;overflow-y:auto;background:var(--gray-50);}
+.page-title{font-family:'Playfair Display',serif;font-size:24px;font-weight:800;color:var(--navy);margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--gray-400);margin-bottom:28px;}
+
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+.metric-card{background:#fff;border:1px solid var(--gray-200);border-radius:16px;padding:20px;border-top:4px solid;}
+.metric-icon{font-size:24px;margin-bottom:10px;}
+.metric-val{font-size:28px;font-weight:800;line-height:1;margin-bottom:4px;}
+.metric-label{font-size:11px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.06em;}
+
+.form-card{background:#fff;border:1px solid var(--gray-200);border-radius:16px;padding:28px 32px;}
+.form-section-title{font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--gray-100);display:flex;align-items:center;gap:8px;}
+.form-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-select{width:100%;font-size:14px;font-family:'DM Sans',sans-serif;border:1.5px solid var(--gray-200);border-radius:10px;padding:11px 14px;color:var(--gray-800);background:#fff;outline:none;cursor:pointer;transition:border-color 0.2s;}
+.form-select:focus{border-color:var(--blue-light);box-shadow:0 0 0 3px rgba(59,110,240,0.1);}
+.form-textarea{width:100%;font-size:14px;font-family:'DM Sans',sans-serif;border:1.5px solid var(--gray-200);border-radius:10px;padding:11px 14px;color:var(--gray-800);background:#fff;outline:none;resize:vertical;min-height:80px;transition:border-color 0.2s;}
+.form-textarea:focus{border-color:var(--blue-light);box-shadow:0 0 0 3px rgba(59,110,240,0.1);}
+
+.status-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;}
+.status-pending{background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
+.status-review{background:#ebf4ff;color:#2c5282;border:1px solid #bee3f8;}
+.status-accepted{background:#f0fff4;color:#276749;border:1px solid #c6f6d5;}
+.status-rejected{background:#fff5f5;color:#c53030;border:1px solid #fed7d7;}
+.status-waitlisted{background:#faf5ff;color:#553c9a;border:1px solid #e9d8fd;}
+
+.data-table{width:100%;border-collapse:collapse;font-size:13px;}
+.data-table th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid var(--gray-100);background:#fafbfd;}
+.data-table td{padding:12px 14px;border-bottom:1px solid var(--gray-100);color:var(--gray-800);vertical-align:middle;}
+.data-table tr:hover td{background:#f8f9fc;}
+.data-table-wrap{background:#fff;border:1px solid var(--gray-200);border-radius:16px;overflow:hidden;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;}
+.modal{background:#fff;border-radius:20px;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,0.3);animation:cardIn 0.3s cubic-bezier(0.22,1,0.36,1) both;}
+.modal-header{background:linear-gradient(135deg,var(--navy),var(--blue));padding:24px 28px;color:#fff;border-radius:20px 20px 0 0;display:flex;justify-content:space-between;align-items:flex-start;}
+.modal-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;}
+.modal-sub{font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;}
+.btn-modal-close{background:rgba(255,255,255,0.15);border:none;border-radius:8px;color:#fff;width:30px;height:30px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+.modal-body{padding:24px 28px;}
+.detail-row{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--gray-100);font-size:13px;}
+.detail-key{color:var(--gray-400);font-weight:600;min-width:160px;}
+.detail-val{color:var(--gray-800);text-align:right;flex:1;}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--gray-400);}
+.empty-icon{font-size:48px;margin-bottom:12px;}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;border:1px solid rgba(245,196,0,0.3);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+.toast.show{opacity:1;}
+
+.hero-banner{background:linear-gradient(135deg,var(--navy),var(--blue));border-radius:16px;padding:24px 28px;margin-bottom:24px;color:#fff;display:flex;align-items:center;gap:16px;}
+.hero-icon{font-size:36px;flex-shrink:0;}
+.hero-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:4px;}
+.hero-sub{font-size:13px;color:rgba(255,255,255,0.65);}
+
+@media(max-width:640px){
+  .card-body{padding:24px 20px 28px;}.card-header{padding:28px 20px 24px;}
+  .metric-grid{grid-template-columns:1fr 1fr;}.sidebar{display:none;}.main-content{padding:20px;}
+  .form-3col,.form-2col{grid-template-columns:1fr;}.topbar{padding:0 16px;}
+  .topbar-sub{display:none;}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-canvas">
+  <div class="bg-grid"></div>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+</div>
+
+<!-- Auth Pages -->
+<div id="auth-pages" class="portal-wrap">
+  <div class="card">
+    <div class="card-header">
+      <div class="seal">🏛️</div>
+      <div class="uni-name">University of Southeast Asian Academy</div>
+      <div class="portal-label">Admission Portal · A.Y. 2025–2026</div>
+    </div>
+    <div class="card-body">
+
+      <!-- LOGIN -->
+      <div class="screen active" id="screen-login">
+        <div class="screen-title">Welcome back</div>
+        <div class="screen-sub">Sign in to your USAA Admission account.</div>
+        <div id="login-alert"></div>
+        <div class="form-group input-icon">
+          <label class="form-label">Email Address</label>
+          <span class="icon">📧</span>
+          <input class="form-input" id="login-email" type="email" placeholder="yourname@email.com"/>
+        </div>
+        <div class="form-group input-icon">
+          <label class="form-label">Password</label>
+          <span class="icon">🔒</span>
+          <input class="form-input" id="login-pass" type="password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')doLogin()"/>
+        </div>
+        <div style="text-align:right;margin-bottom:20px;">
+          <button class="btn-link" onclick="showScreen('screen-forgot')">Forgot password?</button>
+        </div>
+        <button class="btn-primary" onclick="doLogin()" id="btn-login">Sign In</button>
+        <div class="divider">or</div>
+        <div class="card-footer-nav">No account yet? <button class="btn-link" onclick="showScreen('screen-register')">Create one now</button></div>
+      </div>
+
+      <!-- REGISTER -->
+      <div class="screen" id="screen-register">
+        <div class="steps">
+          <div class="step active" id="reg-step-1"><div class="step-num">1</div><div class="step-label">Account</div></div>
+          <div class="step-line"></div>
+          <div class="step" id="reg-step-2"><div class="step-num">2</div><div class="step-label">Verify</div></div>
+        </div>
+        <div id="reg-part-1">
+          <div class="screen-title">Create account</div>
+          <div class="screen-sub">Join the USAA Admission Portal.</div>
+          <div id="register-alert"></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="reg-fname" placeholder="Juan"/></div>
+            <div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="reg-lname" placeholder="Dela Cruz"/></div>
+          </div>
+          <div class="form-group input-icon">
+            <label class="form-label">Email Address</label>
+            <span class="icon">📧</span>
+            <input class="form-input" id="reg-email" type="email" placeholder="yourname@email.com"/>
+          </div>
+          <div class="form-group input-icon">
+            <label class="form-label">Password</label>
+            <span class="icon">🔒</span>
+            <input class="form-input" id="reg-pass" type="password" placeholder="Min. 8 characters" oninput="checkPwStrength(this.value)"/>
+            <div class="pw-strength"><div class="pw-bar" id="pw-b1"></div><div class="pw-bar" id="pw-b2"></div><div class="pw-bar" id="pw-b3"></div><div class="pw-bar" id="pw-b4"></div></div>
+            <div class="pw-label" id="pw-label"></div>
+          </div>
+          <div class="form-group input-icon">
+            <label class="form-label">Confirm Password</label>
+            <span class="icon">🔒</span>
+            <input class="form-input" id="reg-confirm" type="password" placeholder="Repeat password"/>
+          </div>
+          <button class="btn-primary" onclick="doRegister()" id="btn-register">Create Account</button>
+        </div>
+        <div id="reg-part-2" style="display:none;">
+          <div class="screen-title">Verify your email</div>
+          <div class="screen-sub">We sent a 6-digit code to <strong id="verify-email-display"></strong>. Enter it below to activate your account.</div>
+          <div id="verify-alert"></div>
+          <div class="otp-wrap">
+            <input class="otp-input" id="otp-0" maxlength="1" oninput="otpMove(this,0)" onkeydown="otpBack(event,0)"/>
+            <input class="otp-input" id="otp-1" maxlength="1" oninput="otpMove(this,1)" onkeydown="otpBack(event,1)"/>
+            <input class="otp-input" id="otp-2" maxlength="1" oninput="otpMove(this,2)" onkeydown="otpBack(event,2)"/>
+            <input class="otp-input" id="otp-3" maxlength="1" oninput="otpMove(this,3)" onkeydown="otpBack(event,3)"/>
+            <input class="otp-input" id="otp-4" maxlength="1" oninput="otpMove(this,4)" onkeydown="otpBack(event,4)"/>
+            <input class="otp-input" id="otp-5" maxlength="1" oninput="otpMove(this,5)" onkeydown="otpBack(event,5)"/>
+          </div>
+          <button class="btn-primary" onclick="verifyOTP()" id="btn-verify">Verify &amp; Activate</button>
+          <div style="text-align:center;margin-top:14px;"><button class="btn-link" onclick="resendOTP()">Resend code</button></div>
+        </div>
+        <div class="card-footer-nav" style="margin-top:16px;">Already have an account? <button class="btn-link" onclick="showScreen('screen-login')">Sign in</button></div>
+      </div>
+
+      <!-- FORGOT PASSWORD -->
+      <div class="screen" id="screen-forgot">
+        <div class="screen-title">Reset password</div>
+        <div class="screen-sub">Enter your registered email and we'll send you a secure reset link.</div>
+        <div id="forgot-alert"></div>
+        <div class="form-group input-icon">
+          <label class="form-label">Email Address</label>
+          <span class="icon">📧</span>
+          <input class="form-input" id="forgot-email" type="email" placeholder="yourname@email.com"/>
+        </div>
+        <button class="btn-primary" onclick="doForgotPassword()" id="btn-forgot">Send Reset Link</button>
+        <div class="card-footer-nav" style="margin-top:16px;"><button class="btn-link" onclick="showScreen('screen-login')">← Back to Sign In</button></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard" style="display:none;" class="dash-wrap">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-seal">🏛️</div>
+      <div>
+        <div class="topbar-name">University of Southeast Asian Academy</div>
+        <div class="topbar-sub">ADMISSION PORTAL · A.Y. 2025–2026</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <div class="user-avatar" id="topbar-avatar">U</div>
+        <span class="user-name" id="topbar-name">Loading...</span>
+      </div>
+      <button class="btn-signout" onclick="doSignOut()">Sign Out</button>
+    </div>
+  </div>
+  <div class="dash-body">
+    <div class="sidebar">
+      <div class="sidebar-section" style="margin-bottom:8px;">Menu</div>
+      <button class="nav-item active" id="nav-home" onclick="switchTab('home')">🏠 &nbsp;Dashboard</button>
+      <button class="nav-item" id="nav-apply" onclick="switchTab('apply')">📝 &nbsp;My Application</button>
+      <button class="nav-item" id="nav-status" onclick="switchTab('status')">📊 &nbsp;Track Status</button>
+      <div id="admin-nav" style="display:none;margin-top:16px;border-top:1px solid rgba(245,196,0,0.1);padding-top:16px;">
+        <div class="sidebar-section" style="margin-bottom:8px;">Admin</div>
+        <button class="nav-item" id="nav-admin" onclick="switchTab('admin')">⚙️ &nbsp;All Applications</button>
+        <button class="nav-item" id="nav-users" onclick="switchTab('users')">👥 &nbsp;Manage Users</button>
+      </div>
+    </div>
+    <div class="main-content" id="main-content">
+      <div class="empty-state"><div class="spinner" style="border-color:rgba(10,31,92,0.2);border-top-color:var(--blue);width:32px;height:32px;margin-right:0;"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Admin Modal -->
+<div class="modal-overlay" id="app-modal" style="display:none;" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div><div class="modal-title" id="modal-appname">Details</div><div class="modal-sub" id="modal-appsub"></div></div>
+      <button class="btn-modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://dcpionkuwnvtuivmyiub.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjcGlvbmt1d252dHVpdm15aXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMzYzNzMsImV4cCI6MjA5MTcxMjM3M30.QoVAU3sutJd3BcaH3oKSXEjXvXfIPqHfVVtlZRKOwq0';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let currentUser=null,currentProfile=null,pendingRegEmail='',pendingRegPass='',pendingRegName='';
+
+function showToast(msg,ms=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),ms);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');['login-alert','register-alert','verify-alert','forgot-alert'].forEach(a=>{const el=document.getElementById(a);if(el)el.innerHTML='';});}
+function showAlert(cid,msg,type='error'){const icons={error:'❌',success:'✅',info:'ℹ️'};document.getElementById(cid).innerHTML=`<div class="alert alert-${type}">${icons[type]} ${msg}</div>`;}
+
+function checkPwStrength(pw){
+  const bars=[1,2,3,4].map(i=>document.getElementById('pw-b'+i));
+  const label=document.getElementById('pw-label');
+  bars.forEach(b=>{b.className='pw-bar';});
+  if(!pw){label.textContent='';return;}
+  let s=0;
+  if(pw.length>=8)s++;if(/[A-Z]/.test(pw))s++;if(/[0-9]/.test(pw))s++;if(/[^A-Za-z0-9]/.test(pw))s++;
+  const lvl=['','weak','fair','good','strong'],lbl=['','Weak','Fair','Good','Strong'];
+  for(let i=0;i<s;i++)bars[i].classList.add(lvl[s]);
+  label.textContent=lbl[s];label.style.color=s<=1?'#e53e3e':s===2?'#dd6b20':s===3?'#d69e2e':'#38a169';
+}
+
+function otpMove(el,idx){el.value=el.value.replace(/[^0-9]/g,'');if(el.value.length===1&&idx<5)document.getElementById('otp-'+(idx+1)).focus();el.classList.toggle('filled',el.value.length===1);}
+function otpBack(e,idx){if(e.key==='Backspace'&&!e.target.value&&idx>0)document.getElementById('otp-'+(idx-1)).focus();}
+function getOTPValue(){return[0,1,2,3,4,5].map(i=>document.getElementById('otp-'+i).value).join('');}
+function clearOTP(){[0,1,2,3,4,5].forEach(i=>{const el=document.getElementById('otp-'+i);el.value='';el.classList.remove('filled');});document.getElementById('otp-0').focus();}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  if(!email||!pass){showAlert('login-alert','Please fill in all fields.');return;}
+  const btn=document.getElementById('btn-login');
+  btn.innerHTML='<span class="spinner"></span>Signing in...';btn.disabled=true;
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+  btn.innerHTML='Sign In';btn.disabled=false;
+  if(error){showAlert('login-alert',error.message.includes('Invalid')||error.message.includes('credentials')?'Incorrect email or password. Please try again.':error.message);return;}
+  if(!data.user.email_confirmed_at){showAlert('login-alert','Please verify your email before signing in. Check your inbox for the verification code.');await sb.auth.signOut();return;}
+  await loadDashboard(data.user);
+}
+
+async function doRegister(){
+  const fname=document.getElementById('reg-fname').value.trim();
+  const lname=document.getElementById('reg-lname').value.trim();
+  const email=document.getElementById('reg-email').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  const confirm=document.getElementById('reg-confirm').value;
+  if(!fname||!lname||!email||!pass){showAlert('register-alert','Please fill in all fields.');return;}
+  if(pass.length<8){showAlert('register-alert','Password must be at least 8 characters.');return;}
+  if(pass!==confirm){showAlert('register-alert','Passwords do not match.');return;}
+  const btn=document.getElementById('btn-register');
+  btn.innerHTML='<span class="spinner"></span>Creating account...';btn.disabled=true;
+  pendingRegEmail=email;pendingRegPass=pass;pendingRegName=fname+' '+lname;
+  const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:pendingRegName},emailRedirectTo:window.location.href}});
+  btn.innerHTML='Create Account';btn.disabled=false;
+  if(error){showAlert('register-alert',error.message);return;}
+  // Send OTP
+  await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false}});
+  document.getElementById('verify-email-display').textContent=email;
+  document.getElementById('reg-part-1').style.display='none';
+  document.getElementById('reg-part-2').style.display='block';
+  document.getElementById('reg-step-1').className='step done';
+  document.getElementById('reg-step-2').className='step active';
+  showToast('📧 Verification code sent to '+email);
+}
+
+async function verifyOTP(){
+  const entered=getOTPValue();
+  if(entered.length<6){showAlert('verify-alert','Please enter the complete 6-digit code.');return;}
+  const btn=document.getElementById('btn-verify');
+  btn.innerHTML='<span class="spinner"></span>Verifying...';btn.disabled=true;
+  const {data,error}=await sb.auth.verifyOtp({email:pendingRegEmail,token:entered,type:'email'});
+  btn.innerHTML='Verify &amp; Activate';btn.disabled=false;
+  if(error){
+    // Try signup token type as fallback
+    const {data:d2,error:e2}=await sb.auth.verifyOtp({email:pendingRegEmail,token:entered,type:'signup'});
+    if(e2){showAlert('verify-alert','Invalid or expired code. Please check and try again.');return;}
+    showToast('✅ Email verified! Welcome to USAA!');
+    await loadDashboard(d2.user);return;
+  }
+  showToast('✅ Email verified! Welcome to USAA!');
+  await loadDashboard(data.user);
+}
+
+async function resendOTP(){
+  if(!pendingRegEmail){showAlert('verify-alert','Please restart registration.');return;}
+  await sb.auth.signInWithOtp({email:pendingRegEmail,options:{shouldCreateUser:false}});
+  showToast('📧 New code sent to '+pendingRegEmail);
+  clearOTP();
+}
+
+async function doForgotPassword(){
+  const email=document.getElementById('forgot-email').value.trim();
+  if(!email){showAlert('forgot-alert','Please enter your email address.');return;}
+  const btn=document.getElementById('btn-forgot');
+  btn.innerHTML='<span class="spinner"></span>Sending...';btn.disabled=true;
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});
+  btn.innerHTML='Send Reset Link';btn.disabled=false;
+  if(error){showAlert('forgot-alert',error.message);return;}
+  showAlert('forgot-alert','Password reset link sent! Check your email inbox (and spam folder).','success');
+}
+
+async function doSignOut(){
+  await sb.auth.signOut();currentUser=null;currentProfile=null;
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('auth-pages').style.display='flex';
+  showScreen('screen-login');showToast('👋 Signed out successfully.');
+}
+
+async function loadDashboard(user){
+  currentUser=user;
+  document.getElementById('auth-pages').style.display='none';
+  document.getElementById('dashboard').style.display='flex';
+  const {data:profile}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  currentProfile=profile;
+  const name=profile?.full_name||user.email.split('@')[0];
+  document.getElementById('topbar-name').textContent=name;
+  document.getElementById('topbar-avatar').textContent=name.charAt(0).toUpperCase();
+  if(profile?.role==='admin')document.getElementById('admin-nav').style.display='block';
+  switchTab('home');
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const el=document.getElementById('nav-'+tab);if(el)el.classList.add('active');
+  ({home:renderHome,apply:renderApply,status:renderStatus,admin:renderAdmin,users:renderUsers})[tab]?.();
+}
+
+function statusMeta(s){
+  if(s==='Accepted')return{bg:'#f0fff4',border:'#c6f6d5',color:'#276749',icon:'🎉'};
+  if(s==='Rejected')return{bg:'#fff5f5',border:'#fed7d7',color:'#c53030',icon:'❌'};
+  if(s==='Waitlisted')return{bg:'#faf5ff',border:'#e9d8fd',color:'#553c9a',icon:'⏸️'};
+  if(s==='For Interview')return{bg:'#ebf4ff',border:'#bee3f8',color:'#2c5282',icon:'🎤'};
+  if(s==='Under Review')return{bg:'#fffbeb',border:'#fde68a',color:'#744210',icon:'🔍'};
+  return{bg:'#f8f9fc',border:'#e2e8f0',color:'#4a5270',icon:'📋'};
+}
+function statusClass(s){
+  if(s==='Accepted')return'status-accepted';if(s==='Rejected')return'status-rejected';
+  if(s==='Waitlisted')return'status-waitlisted';
+  if(['Under Review','For Interview'].includes(s))return'status-review';
+  return'status-pending';
+}
+
+async function renderHome(){
+  const name=currentProfile?.full_name||currentUser.email.split('@')[0];
+  const isAdmin=currentProfile?.role==='admin';
+  const mc=document.getElementById('main-content');
+  if(isAdmin){
+    const [{count:total},{count:pending},{count:accepted},{count:rejected}]=await Promise.all([
+      sb.from('applications').select('*',{count:'exact',head:true}),
+      sb.from('applications').select('*',{count:'exact',head:true}).eq('status','Pending'),
+      sb.from('applications').select('*',{count:'exact',head:true}).eq('status','Accepted'),
+      sb.from('applications').select('*',{count:'exact',head:true}).eq('status','Rejected'),
+    ]);
+    mc.innerHTML=`
+      <div class="page-title">Good day, ${esc(name)} 👋</div>
+      <div class="page-sub">Overview of all admission applications — A.Y. 2025–2026.</div>
+      <div class="metric-grid">
+        <div class="metric-card" style="border-top-color:#1a3fa0;"><div class="metric-icon">📁</div><div class="metric-val" style="color:#1a3fa0;">${total||0}</div><div class="metric-label">Total Applications</div></div>
+        <div class="metric-card" style="border-top-color:#d69e2e;"><div class="metric-icon">⏳</div><div class="metric-val" style="color:#d69e2e;">${pending||0}</div><div class="metric-label">Pending Review</div></div>
+        <div class="metric-card" style="border-top-color:#38a169;"><div class="metric-icon">✅</div><div class="metric-val" style="color:#38a169;">${accepted||0}</div><div class="metric-label">Accepted</div></div>
+        <div class="metric-card" style="border-top-color:#e53e3e;"><div class="metric-icon">❌</div><div class="metric-val" style="color:#e53e3e;">${rejected||0}</div><div class="metric-label">Rejected</div></div>
+      </div>
+      <div class="hero-banner"><div class="hero-icon">⚙️</div><div><div class="hero-title">Admin Dashboard</div><div class="hero-sub">Full access to manage all applications and user accounts for A.Y. 2025–2026.</div></div></div>`;
+  } else {
+    const {data:app}=await sb.from('applications').select('status,admin_notes').eq('user_id',currentUser.id).single();
+    const appStatus=app?.status||'No application yet';
+    const sm=statusMeta(appStatus);
+    mc.innerHTML=`
+      <div class="page-title">Welcome, ${esc(name)} 👋</div>
+      <div class="page-sub">Track your USAA admission application status below.</div>
+      <div class="hero-banner"><div class="hero-icon">🎓</div><div><div class="hero-title">University of Southeast Asian Academy</div><div class="hero-sub">Admission Year 2025–2026 · Applications are open. Submit yours today!</div></div></div>
+      <div style="background:#fff;border:1px solid var(--gray-200);border-radius:16px;padding:24px 28px;max-width:480px;">
+        <div style="font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px;">Your Application Status</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${app?.admin_notes?'10px':'16px'};">
+          <div style="font-size:15px;font-weight:600;color:var(--navy);">${esc(name)}</div>
+          <span class="status-badge ${statusClass(appStatus)}">${sm.icon} ${appStatus}</span>
+        </div>
+        ${app?.admin_notes?`<div style="background:${sm.bg};border:1px solid ${sm.border};border-radius:8px;padding:10px 12px;font-size:12px;color:${sm.color};margin-bottom:16px;">📌 ${esc(app.admin_notes)}</div>`:''}
+        <button class="btn-primary" onclick="switchTab('apply')" style="width:auto;padding:10px 20px;font-size:13px;">
+          ${!app?'📝 Start Application':'📋 View My Application'}
+        </button>
+      </div>`;
+  }
+}
+
+async function renderApply(){
+  const mc=document.getElementById('main-content');
+  mc.innerHTML=`<div class="empty-state"><div class="spinner" style="border-color:rgba(10,31,92,0.2);border-top-color:var(--blue);width:32px;height:32px;margin-right:0;"></div></div>`;
+  const {data:existing}=await sb.from('applications').select('*').eq('user_id',currentUser.id).single();
+  if(existing){
+    const sm=statusMeta(existing.status);
+    mc.innerHTML=`
+      <div class="page-title">My Application</div>
+      <div class="page-sub">Your submitted admission application.</div>
+      <div style="background:${sm.bg};border:1px solid ${sm.border};border-radius:16px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:14px;max-width:680px;">
+        <div style="font-size:32px;">${sm.icon}</div>
+        <div><div style="font-size:11px;font-weight:700;color:${sm.color};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px;">Application Status</div>
+        <div style="font-size:20px;font-weight:800;color:${sm.color};">${esc(existing.status)}</div>
+        ${existing.admin_notes?`<div style="font-size:13px;color:${sm.color};opacity:0.8;margin-top:4px;">${esc(existing.admin_notes)}</div>`:''}</div>
+      </div>
+      <div class="data-table-wrap" style="max-width:680px;">
+        <table class="data-table">
+          ${[['Full Name',existing.full_name],['Date of Birth',existing.date_of_birth],['Gender',existing.gender],['Phone',existing.phone],['Address',existing.address],
+             ['1st Choice Program',existing.program_choice_1],['2nd Choice Program',existing.program_choice_2],
+             ['Last School Attended',existing.school_last_attended],['Year Graduated',existing.school_year_graduated],['GPA / General Average',existing.gpa],
+             ['Submitted',new Date(existing.submitted_at).toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'})]
+            ].map(([k,v])=>`<tr><td style="color:var(--gray-400);font-weight:600;font-size:12px;width:200px;">${k}</td><td>${esc(v||'—')}</td></tr>`).join('')}
+        </table>
+      </div>`;
+    return;
+  }
+  const progs=['Bachelor of Science in Computer Science','Bachelor of Science in Information Technology','Bachelor of Science in Business Administration','Bachelor of Science in Accountancy','Bachelor of Science in Nursing','Bachelor of Science in Education','Bachelor of Arts in Communication','Bachelor of Science in Engineering','Bachelor of Science in Architecture','Bachelor of Laws (LLB)'];
+  const po=progs.map(p=>`<option value="${p}">${p}</option>`).join('');
+  mc.innerHTML=`
+    <div class="page-title">Admission Application</div>
+    <div class="page-sub">Fill out all fields carefully. You may only submit once.</div>
+    <div class="form-card" style="max-width:700px;">
+      <div id="apply-alert"></div>
+      <div class="form-section-title">👤 Personal Information</div>
+      <div class="form-3col" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="a-name" placeholder="Juan Dela Cruz"/></div>
+        <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="a-dob" type="date"/></div>
+        <div class="form-group"><label class="form-label">Gender</label><select class="form-select" id="a-gender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Prefer not to say</option></select></div>
+      </div>
+      <div class="form-2col" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Phone Number</label><input class="form-input" id="a-phone" placeholder="09xxxxxxxxx"/></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="a-email" value="${esc(currentUser.email)}" readonly style="background:#f8f9fc;color:var(--gray-400);"/></div>
+      </div>
+      <div class="form-group" style="margin-bottom:20px;"><label class="form-label">Complete Address</label><textarea class="form-textarea" id="a-address" placeholder="House/Unit No., Street, Barangay, City, Province"></textarea></div>
+      <div class="form-section-title">🎓 Academic Background</div>
+      <div class="form-2col" style="margin-bottom:14px;">
+        <div class="form-group" style="grid-column:1/2"><label class="form-label">Last School Attended</label><input class="form-input" id="a-school" placeholder="School name"/></div>
+        <div class="form-group"><label class="form-label">Year Graduated</label><input class="form-input" id="a-grad" placeholder="2024"/></div>
+      </div>
+      <div class="form-group" style="margin-bottom:20px;max-width:200px;"><label class="form-label">GPA / General Average</label><input class="form-input" id="a-gpa" placeholder="e.g. 92.5"/></div>
+      <div class="form-section-title">📚 Program Choice</div>
+      <div class="form-2col" style="margin-bottom:28px;">
+        <div class="form-group"><label class="form-label">1st Choice Program</label><select class="form-select" id="a-prog1"><option value="">— Select —</option>${po}</select></div>
+        <div class="form-group"><label class="form-label">2nd Choice Program</label><select class="form-select" id="a-prog2"><option value="">— Select —</option>${po}</select></div>
+      </div>
+      <button class="btn-gold" onclick="submitApplication()" id="btn-apply" style="max-width:280px;">📤 &nbsp;Submit Application</button>
+    </div>`;
+}
+
+async function submitApplication(){
+  const f={full_name:document.getElementById('a-name').value.trim(),date_of_birth:document.getElementById('a-dob').value,gender:document.getElementById('a-gender').value,phone:document.getElementById('a-phone').value.trim(),email:currentUser.email,address:document.getElementById('a-address').value.trim(),school_last_attended:document.getElementById('a-school').value.trim(),school_year_graduated:document.getElementById('a-grad').value.trim(),gpa:document.getElementById('a-gpa').value.trim(),program_choice_1:document.getElementById('a-prog1').value,program_choice_2:document.getElementById('a-prog2').value,user_id:currentUser.id};
+  if(!f.full_name||!f.date_of_birth||!f.gender||!f.phone||!f.address||!f.school_last_attended||!f.program_choice_1){showAlert('apply-alert','Please fill in all required fields.');return;}
+  const btn=document.getElementById('btn-apply');btn.innerHTML='<span class="spinner"></span>Submitting...';btn.disabled=true;
+  const {error}=await sb.from('applications').insert(f);
+  if(error){showAlert('apply-alert',error.message);btn.innerHTML='📤 &nbsp;Submit Application';btn.disabled=false;return;}
+  showToast('🎉 Application submitted successfully!');renderApply();
+}
+
+async function renderStatus(){
+  const mc=document.getElementById('main-content');
+  const {data:app}=await sb.from('applications').select('*').eq('user_id',currentUser.id).single();
+  if(!app){mc.innerHTML=`<div class="page-title">Track Status</div><div class="empty-state"><div class="empty-icon">📋</div><div style="font-size:14px;margin-bottom:16px;">You haven't submitted an application yet.</div><button class="btn-primary" onclick="switchTab('apply')" style="width:auto;padding:10px 22px;font-size:13px;">Start Application</button></div>`;return;}
+  const steps=[{label:'Application Submitted',done:true},{label:'Under Review',done:['Under Review','For Interview','Accepted','Waitlisted','Rejected'].includes(app.status)},{label:'For Interview',done:['For Interview','Accepted','Waitlisted'].includes(app.status)},{label:'Decision Released',done:['Accepted','Waitlisted','Rejected'].includes(app.status)}];
+  const sm=statusMeta(app.status);
+  mc.innerHTML=`
+    <div class="page-title">Application Status</div>
+    <div class="page-sub">Track your admission application progress.</div>
+    <div style="background:${sm.bg};border:1px solid ${sm.border};border-radius:16px;padding:20px 24px;margin-bottom:24px;max-width:520px;display:flex;align-items:center;gap:14px;">
+      <div style="font-size:32px;">${sm.icon}</div>
+      <div><div style="font-size:11px;font-weight:700;color:${sm.color};text-transform:uppercase;letter-spacing:0.08em;">Current Status</div>
+      <div style="font-size:20px;font-weight:800;color:${sm.color};">${esc(app.status)}</div>
+      ${app.admin_notes?`<div style="font-size:13px;color:${sm.color};opacity:0.8;margin-top:4px;">${esc(app.admin_notes)}</div>`:''}</div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--gray-200);border-radius:16px;padding:24px 28px;max-width:520px;">
+      <div style="font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:20px;">Timeline</div>
+      ${steps.map((s,i)=>`<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:${i<steps.length-1?'20px':'0'};">
+        <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+          <div style="width:28px;height:28px;border-radius:50%;background:${s.done?'var(--blue)':'var(--gray-200)'};display:flex;align-items:center;justify-content:center;font-size:12px;color:${s.done?'#fff':'var(--gray-400)'};">${s.done?'✓':'○'}</div>
+          ${i<steps.length-1?`<div style="width:2px;height:28px;background:${s.done?'var(--blue-light)':'var(--gray-200)'};margin-top:4px;"></div>`:''}
+        </div>
+        <div style="padding-top:4px;"><div style="font-size:14px;font-weight:${s.done?'700':'400'};color:${s.done?'var(--navy)':'var(--gray-400)'};">${s.label}</div></div>
+      </div>`).join('')}
+    </div>`;
+}
+
+async function renderAdmin(){
+  if(currentProfile?.role!=='admin'){document.getElementById('main-content').innerHTML='<div class="empty-state">🚫 Access denied.</div>';return;}
+  const mc=document.getElementById('main-content');
+  mc.innerHTML=`<div class="empty-state"><div class="spinner" style="border-color:rgba(10,31,92,0.2);border-top-color:var(--blue);width:32px;height:32px;margin-right:0;"></div></div>`;
+  const {data:apps}=await sb.from('applications').select('*').order('submitted_at',{ascending:false});
+  window._adminApps=apps||[];
+  if(!apps?.length){mc.innerHTML=`<div class="page-title">All Applications</div><div class="empty-state"><div class="empty-icon">📭</div><div>No applications submitted yet.</div></div>`;return;}
+  mc.innerHTML=`
+    <div class="page-title">All Applications</div>
+    <div class="page-sub">${apps.length} total submission${apps.length!==1?'s':''}.</div>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Name</th><th>1st Choice Program</th><th>School</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+        <tbody>${apps.map((a,i)=>`<tr>
+          <td style="color:var(--gray-400);font-weight:600;">${i+1}</td>
+          <td style="font-weight:600;">${esc(a.full_name||'—')}</td>
+          <td style="color:var(--gray-600);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.program_choice_1||'—')}</td>
+          <td style="color:var(--gray-600);">${esc(a.school_last_attended||'—')}</td>
+          <td><span class="status-badge ${statusClass(a.status)}">${esc(a.status)}</span></td>
+          <td style="color:var(--gray-400);">${new Date(a.submitted_at).toLocaleDateString('en-PH')}</td>
+          <td><button onclick="openAppModal('${a.id}')" style="background:var(--blue);color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">View</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+function openAppModal(appId){
+  const app=window._adminApps?.find(a=>a.id===appId);if(!app)return;
+  document.getElementById('modal-appname').textContent=app.full_name||'Applicant';
+  document.getElementById('modal-appsub').textContent=app.program_choice_1||'—';
+  document.getElementById('modal-body').innerHTML=`
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Update Status</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${['Pending','Under Review','For Interview','Accepted','Waitlisted','Rejected'].map(s=>`
+          <button onclick="updateAppStatus('${app.id}','${s}')" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;border:2px solid ${s===app.status?'var(--blue)':'var(--gray-200)'};background:${s===app.status?'var(--blue)':'#fff'};color:${s===app.status?'#fff':'var(--gray-600)'};">${s}</button>
+        `).join('')}
+      </div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Admin Notes / Remarks</div>
+      <textarea class="form-textarea" id="modal-notes" placeholder="Add remarks visible to the applicant...">${esc(app.admin_notes||'')}</textarea>
+      <button onclick="saveAdminNotes('${app.id}')" style="margin-top:8px;background:var(--navy);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">💾 Save Notes</button>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Applicant Details</div>
+    ${[['Full Name',app.full_name],['Date of Birth',app.date_of_birth],['Gender',app.gender],['Phone',app.phone],['Email',app.email],['Address',app.address],['1st Choice',app.program_choice_1],['2nd Choice',app.program_choice_2],['Last School',app.school_last_attended],['Year Graduated',app.school_year_graduated],['GPA',app.gpa],['Submitted',app.submitted_at?new Date(app.submitted_at).toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'}):'—']
+    ].map(([k,v])=>`<div class="detail-row"><span class="detail-key">${k}</span><span class="detail-val">${esc(v||'—')}</span></div>`).join('')}`;
+  document.getElementById('app-modal').style.display='flex';
+}
+
+async function updateAppStatus(appId,status){
+  const {error}=await sb.from('applications').update({status,updated_at:new Date().toISOString()}).eq('id',appId);
+  if(error){showToast('⚠️ Error: '+error.message);return;}
+  showToast('✅ Status updated to: '+status);closeModal();renderAdmin();
+}
+
+async function saveAdminNotes(appId){
+  const notes=document.getElementById('modal-notes').value.trim();
+  const {error}=await sb.from('applications').update({admin_notes:notes,updated_at:new Date().toISOString()}).eq('id',appId);
+  if(error){showToast('⚠️ Error saving notes.');return;}
+  showToast('📝 Notes saved!');
+}
+
+function closeModal(){document.getElementById('app-modal').style.display='none';}
+
+async function renderUsers(){
+  if(currentProfile?.role!=='admin')return;
+  const mc=document.getElementById('main-content');
+  mc.innerHTML=`<div class="empty-state"><div class="spinner" style="border-color:rgba(10,31,92,0.2);border-top-color:var(--blue);width:32px;height:32px;margin-right:0;"></div></div>`;
+  const {data:users}=await sb.from('profiles').select('*').order('created_at',{ascending:false});
+  if(!users?.length){mc.innerHTML=`<div class="page-title">Manage Users</div><div class="empty-state"><div class="empty-icon">👥</div><div>No users yet.</div></div>`;return;}
+  mc.innerHTML=`
+    <div class="page-title">Manage Users</div>
+    <div class="page-sub">${users.length} registered user${users.length!==1?'s':''}.</div>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th></th></tr></thead>
+        <tbody>${users.map((u,i)=>`<tr>
+          <td style="color:var(--gray-400);font-weight:600;">${i+1}</td>
+          <td style="font-weight:600;">${esc(u.full_name||'—')}</td>
+          <td style="color:var(--gray-600);">${esc(u.email)}</td>
+          <td><span class="status-badge ${u.role==='admin'?'status-accepted':'status-review'}">${esc(u.role)}</span></td>
+          <td style="color:var(--gray-400);">${new Date(u.created_at).toLocaleDateString('en-PH')}</td>
+          <td>${u.id!==currentUser.id?`<button onclick="toggleRole('${u.id}','${u.role}')" style="padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;border:1px solid ${u.role==='admin'?'#fed7d7':'#bee3f8'};background:${u.role==='admin'?'#fff5f5':'#ebf4ff'};color:${u.role==='admin'?'#c53030':'var(--blue)'};">${u.role==='admin'?'Remove Admin':'Make Admin'}</button>`:'<span style="font-size:11px;color:var(--gray-400);">You</span>'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+async function toggleRole(userId,currentRole){
+  const newRole=currentRole==='admin'?'applicant':'admin';
+  const {error}=await sb.from('profiles').update({role:newRole}).eq('id',userId);
+  if(error){showToast('⚠️ Error updating role.');return;}
+  showToast(`✅ Role changed to: ${newRole}`);renderUsers();
+}
+
+// Handle password reset redirect
+sb.auth.onAuthStateChange(async(event,session)=>{
+  if(event==='PASSWORD_RECOVERY'){
+    const newPass=prompt('Enter your new password (minimum 8 characters):');
+    if(newPass&&newPass.length>=8){
+      const {error}=await sb.auth.updateUser({password:newPass});
+      if(!error){showToast('✅ Password updated successfully!');showScreen('screen-login');}
+      else alert('Error updating password: '+error.message);
+    }
+    return;
+  }
+  if(event==='SIGNED_IN'&&session?.user?.email_confirmed_at){
+    if(document.getElementById('dashboard').style.display==='none'){
+      await loadDashboard(session.user);
+    }
+  }
+});
+
+// Auto-login if session exists
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session?.user?.email_confirmed_at){await loadDashboard(session.user);}
+})();
+</script>
+</body>
+</html>
